@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react'
+import { useMemo, useState, type KeyboardEvent } from 'react'
 import {
   ArrowRight,
   CheckCircle2,
@@ -69,6 +69,81 @@ export function WorksheetPage() {
     } catch {
       /* ignore */
     }
+  }
+
+  const handleCodeKeyDown = (e: KeyboardEvent<HTMLTextAreaElement>) => {
+    if (e.key !== 'Tab') return
+    e.preventDefault()
+
+    const el = e.currentTarget
+    const value = code
+    const start = el.selectionStart
+    const end = el.selectionEnd
+    const TAB = '    '
+
+    // Shift+Tab: odejmij jedno wcięcie (do 4 spacji) z każdej zaznaczonej linii.
+    if (e.shiftKey) {
+      const lineStart = value.lastIndexOf('\n', start - 1) + 1
+      const lineEnd = value.indexOf('\n', end)
+      const selectionEnd = lineEnd === -1 ? value.length : lineEnd
+      const selected = value.slice(lineStart, selectionEnd)
+      const lines = selected.split('\n')
+
+      let removedFirstLine = 0
+      let removedBeforeEnd = 0
+      const outLines = lines.map((line, i) => {
+        const m = line.match(/^ {1,4}/)
+        const removeCount = m ? m[0].length : 0
+        if (removeCount > 0) {
+          if (i === 0) removedFirstLine = removeCount
+          removedBeforeEnd += removeCount
+        }
+        return line.slice(removeCount)
+      })
+
+      const replaced = outLines.join('\n')
+      setCode(value.slice(0, lineStart) + replaced + value.slice(selectionEnd))
+
+      const newStart = Math.max(lineStart, start - removedFirstLine)
+      const newEnd = Math.max(newStart, end - removedBeforeEnd)
+      queueMicrotask(() => {
+        el.selectionStart = newStart
+        el.selectionEnd = newEnd
+      })
+      return
+    }
+
+    // Tab bez zaznaczenia: wstaw 4 spacje w miejscu kursora.
+    if (start === end) {
+      const next = value.slice(0, start) + TAB + value.slice(end)
+      setCode(next)
+      const pos = start + TAB.length
+      queueMicrotask(() => {
+        el.selectionStart = pos
+        el.selectionEnd = pos
+      })
+      return
+    }
+
+    // Tab z zaznaczeniem: dodaj jedno wcięcie do każdej zaznaczonej linii.
+    const lineStart = value.lastIndexOf('\n', start - 1) + 1
+    const lineEnd = value.indexOf('\n', end)
+    const selectionEnd = lineEnd === -1 ? value.length : lineEnd
+    const selected = value.slice(lineStart, selectionEnd)
+    const indented = selected
+      .split('\n')
+      .map((line) => `${TAB}${line}`)
+      .join('\n')
+
+    setCode(value.slice(0, lineStart) + indented + value.slice(selectionEnd))
+
+    const lineCount = selected.split('\n').length
+    const newStart = start + TAB.length
+    const newEnd = end + lineCount * TAB.length
+    queueMicrotask(() => {
+      el.selectionStart = newStart
+      el.selectionEnd = newEnd
+    })
   }
 
   return (
@@ -237,6 +312,7 @@ else:
               <textarea
                 value={code}
                 onChange={(e) => setCode(e.target.value)}
+                onKeyDown={handleCodeKeyDown}
                 spellCheck={false}
                 rows={12}
                 placeholder="Wpisz tutaj program, przepisując wzór z ramki powyżej…"
