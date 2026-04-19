@@ -2,7 +2,7 @@ import { defineConfig } from 'vite'
 import react from '@vitejs/plugin-react'
 
 // Zmień na nazwę repozytorium GitHub (ścieżka pod GitHub Pages)
-const repoName = 'kodowanie-w-pythonie1'
+const repoName = 'programowanie-w-pythonie'
 
 export default defineConfig({
   plugins: [react()],
